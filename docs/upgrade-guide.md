@@ -104,6 +104,6 @@ git merge ack/main    # 主线（补 lts 尚未包含的修复）
 
 ## 参考
 
-- ACK 仓库：https://android.googlesource.com/kernel/common（分支 `android13-5.15-lts`、`android13-5.15`）
+- ACK 仓库：[android.googlesource.com/kernel/common](https://android.googlesource.com/kernel/common)（分支 `android13-5.15-lts`、`android13-5.15`）
 - 上游作者（hfdem）酷安帖：https://www.coolapk.com/feed/58959644
 - 内核 CVE 数据库：https://git.kernel.org/pub/scm/linux/security/vulns.git

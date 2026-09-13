@@ -7,9 +7,21 @@
 最新版：**[v26.09.13](https://github.com/Bonger34/android_gki_kernel_5.15_common/releases/tag/v26.09.13)**（内核 5.15.216）
 
 - 刷机包：**`kernel-hfdem-v26.09.13.zip`**（AnyKernel3 卡刷包）
-- 刷入方式：KernelSU / Magisk 应用内「从存储安装」，或 recovery 直接刷入
+- 配套模块：**`schedhorizon-20241107.zip`**（与上游一致，未改动）
+- ⚠️ **刷入前请备份！！**
+- 刷入方式（参考上游作者指引）：
+  - 内核：使用 **Kernel Flasher** 刷入（作者推荐）；也可用 KernelSU / Magisk「从存储安装」，或 recovery 直接刷入
+  - 模块：KernelSU 或 Magisk 应用内安装
 - 仅替换内核镜像，不影响数据
 - SHA-256：`6013ac278852f84aeece050d94e47146602eee0e14234506181e493714b290e2`
+
+## 模块使用（schedhorizon）
+
+- 作用：设置 schedhorizon 调速器参数（balance / performance / powersave / fast 情景模式）
+- 切换模式：支持 **scene** 或 **perapp-rs**；也可直接执行 `/data/powercfg.sh <模式>`
+- 游戏请切换至 **fast** 系统调度
+- balance 参数按骁龙 8 Gen 2 调校（作者平时只用 balance）；其他处理器可自行调参或不装模块
+- 参考：上游作者酷安帖 https://www.coolapk.com/feed/58959644
 
 ## 分支
 

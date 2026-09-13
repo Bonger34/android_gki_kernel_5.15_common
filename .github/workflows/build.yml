@@ -46,9 +46,28 @@ jobs:
 
       - name: 添加交换分区（LTO 链接内存保障）
         run: |
-          sudo fallocate -l 10G /swapfile && sudo chmod 600 /swapfile && \
-            sudo mkswap /swapfile && sudo swapon /swapfile || echo "swap 设置失败，继续"
+          set -x
+          # runner 镜像自带一个正在使用的小 swap（约 3GB），先关闭并替换为更大的
+          sudo swapoff -a || true
+          sudo rm -f /swapfile
+          sudo fallocate -l 40G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=40960 status=progress
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          # 提高 swap 使用倾向；如内核支持 zswap 则启用（压缩内存页，降低 swap 抖动）
+          sudo sysctl -w vm.swappiness=100 || true
+          if [ -d /sys/module/zswap/parameters ]; then
+            echo 1 | sudo tee /sys/module/zswap/parameters/enabled || true
+            echo lz4 | sudo tee /sys/module/zswap/parameters/compressor || true
+            echo 40 | sudo tee /sys/module/zswap/parameters/max_pool_percent || true
+          fi
           free -h
+          swapon --show || true
+          # 校验 swap 确实生效（不足 20GB 直接失败，避免 40 分钟后 OOM 白跑）
+          SWAP_MB=$(free -m | awk '/^Swap:/ {print $2}')
+          if [ "${SWAP_MB:-0}" -lt 20000 ]; then
+            echo "swap 配置不足: ${SWAP_MB}MB"; exit 1
+          fi
 
       - name: 恢复 clang 缓存（加速后续运行）
         uses: actions/cache@v4

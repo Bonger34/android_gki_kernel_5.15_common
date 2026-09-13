@@ -114,21 +114,31 @@ jobs:
           export PATH="$CLANG_BIN_DIR:$PATH"
           PROFILE="${{ github.event.inputs.profile || 'quick' }}"
           echo "构建配置: $PROFILE"
-          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 gki_defconfig
+          # BRANCH/KMI_GENERATION 与上游 build.config 一致，用于生成版本串中的 KMI 标记（-android13-8）
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 gki_defconfig BRANCH=android13-5.15 KMI_GENERATION=8
           if [ "$PROFILE" = "quick" ]; then
             ./scripts/config --file out/.config \
               -d LTO_CLANG_FULL -d CFI_CLANG \
               -d KASAN -d KASAN_HW_TAGS \
               -d UBSAN -d UBSAN_TRAP -d UBSAN_LOCAL_BOUNDS \
               -d DEBUG_INFO -d DEBUG_INFO_DWARF4 -d DEBUG_INFO_BTF
-            make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
+            make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig BRANCH=android13-5.15 KMI_GENERATION=8
           fi
           grep -E "^CONFIG_(LTO|CFI|KASAN=|UBSAN=|DEBUG_INFO=|LOCALVERSION)" out/.config || true
+
+      - name: 验证版本串（KMI 标记，供 KernelSU 识别）
+        run: |
+          export PATH="$CLANG_BIN_DIR:$PATH"
+          OUT=$(make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 kernelrelease BRANCH=android13-5.15 KMI_GENERATION=8 2>&1)
+          echo "$OUT"
+          echo "$OUT" | grep -qE "5\.15\.[0-9]+-hfdem-android13-8" \
+            && echo "✅ 版本串含 KMI 标记 (-android13-8)" \
+            || { echo "❌ 版本串缺少 KMI 标记，KernelSU 将无法识别 KMI"; exit 1; }
 
       - name: 构建 Image.lz4 / Image.gz / 模块
         run: |
           export PATH="$CLANG_BIN_DIR:$PATH"
-          time make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j"$(nproc)" Image.lz4 Image.gz modules
+          time make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j"$(nproc)" Image.lz4 Image.gz modules BRANCH=android13-5.15 KMI_GENERATION=8
           ls -la out/arch/arm64/boot/ | head -20
 
       - name: 上传构建产物

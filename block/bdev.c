@@ -29,6 +29,9 @@
 #include "../fs/internal.h"
 #include "blk.h"
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/vmscan.h>
+
 struct bdev_inode {
 	struct block_device bdev;
 	struct inode vfs_inode;
@@ -374,6 +377,7 @@ int bdev_write_page(struct block_device *bdev, sector_t sector,
 		end_page_writeback(page);
 	} else {
 		clean_page_buffers(page);
+		trace_android_vh_shrink_page_lock_owner_clear(page);
 		unlock_page(page);
 	}
 	blk_queue_exit(bdev->bd_disk->queue);
@@ -459,16 +463,12 @@ EXPORT_SYMBOL_GPL(blockdev_superblock);
 
 void __init bdev_cache_init(void)
 {
-	int err;
 	static struct vfsmount *bd_mnt;
 
 	bdev_cachep = kmem_cache_create("bdev_cache", sizeof(struct bdev_inode),
 			0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
 				SLAB_MEM_SPREAD|SLAB_ACCOUNT|SLAB_PANIC),
 			init_once);
-	err = register_filesystem(&bd_type);
-	if (err)
-		panic("Cannot register bdev pseudo-fs");
 	bd_mnt = kern_mount(&bd_type);
 	if (IS_ERR(bd_mnt))
 		panic("Cannot create bdev pseudo-fs");
@@ -741,7 +741,7 @@ struct block_device *blkdev_get_no_open(dev_t dev)
 		inode = ilookup(blockdev_superblock, dev);
 		if (inode)
 			pr_warn_ratelimited(
-"block device autoloading is deprecated. It will be removed in Linux 5.19\n");
+"block device autoloading is deprecated and will be removed.\n");
 	}
 	if (!inode)
 		return NULL;

@@ -4,7 +4,7 @@
 
 ## 下载（刷机包）
 
-最新版：**[v26.09.13](https://github.com/Bonger34/android_gki_kernel_5.15_common/releases/tag/v26.09.13)**（内核 5.15.216）
+最新版：**[v26.09.13](https://github.com/Bonger34/android_gki_kernel_5.15_common/releases/tag/v26.09.13)**（内核 5.15.216，含 KMI 标记）
 
 - 刷机包：**`kernel-hfdem-v26.09.13.zip`**（AnyKernel3 卡刷包）
 - 配套模块：**`schedhorizon-20241107.zip`**（与上游一致，未改动）
@@ -14,7 +14,8 @@
   - 模块：KernelSU 或 Magisk 应用内安装
 - 仅替换内核镜像，不影响数据
 - root 兼容性：只替换内核（boot 分区），不触碰 init_boot；Magisk / KernelSU（LKM）的 root 状态保留，无需重新修补
-- SHA-256：`6013ac278852f84aeece050d94e47146602eee0e14234506181e493714b290e2`
+- 内核含 **KMI 标记**（`-android13-8`）：KernelSU 可自动识别内核 KMI（android13-5.15）
+- SHA-256：`d7424b210c6364758d135492b72845f85ede35dfbd36fbbf1fa2cab5e165cc86`
 
 ## 模块使用（schedhorizon）
 
@@ -49,10 +50,10 @@ git checkout -b android13-5.15-2026-09 FETCH_HEAD
 
 ## 编译测试状态
 
-- ✅ **quick**（快速验证）：[run #34742068392](https://github.com/Bonger34/android_gki_kernel_5.15_common/actions/runs/34742068392)
-- ✅ **full**（发布配置：LTO/CFI/KASAN/UBSAN/BTF）：[run #34742092026](https://github.com/Bonger34/android_gki_kernel_5.15_common/actions/runs/34742092026)
-  - 产物：Image.lz4 27.4MB / Image.gz 23.3MB；内核版本串 `5.15.216-hfdem-g3b714aa31694`
-  - 构建日志：0 警告 0 错误
+- ✅ **quick**（快速验证）：[run #34751431564](https://github.com/Bonger34/android_gki_kernel_5.15_common/actions/runs/34751431564)
+- ✅ **full**（发布配置：LTO/CFI/KASAN/UBSAN/BTF，含 KMI 标记）：[run #34751450430](https://github.com/Bonger34/android_gki_kernel_5.15_common/actions/runs/34751450430)
+  - 产物：Image.lz4 27.5MB / Image.gz 23.3MB；内核版本串 `5.15.216-hfdem-android13-8-g3b714aa31694`
+  - 构建日志：28m50s，0 警告 0 错误
 - 触发方式：push 到 `main` 自动运行 quick；Actions 页手动 Run workflow 可选 quick / full
 - 工具链：AOSP clang r563880（与发版一致）；产物在 Actions 运行页面下载
 

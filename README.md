@@ -25,11 +25,14 @@ git fetch https://github.com/Bonger34/android_gki_kernel_5.15_common android13-5
 git checkout -b android13-5.15-2026-09 FETCH_HEAD
 ```
 
-## 编译测试
+## 编译测试状态
 
-- 本仓库内置 GitHub Actions 工作流：push 到 `main` 自动运行，或 Actions 页手动触发（可选 quick / full）
-- 工具链：AOSP clang r563880（与发版一致）
-- 产物：Image.lz4 / Image.gz（在 Actions 运行页面下载）
+- ✅ **quick**（快速验证）：[run #34742068392](https://github.com/Bonger34/android_gki_kernel_5.15_common/actions/runs/34742068392)
+- ✅ **full**（发布配置：LTO/CFI/KASAN/UBSAN/BTF）：[run #34742092026](https://github.com/Bonger34/android_gki_kernel_5.15_common/actions/runs/34742092026)
+  - 产物：Image.lz4 27.4MB / Image.gz 23.3MB；内核版本串 `5.15.216-hfdem-g3b714aa31694`
+  - 构建日志：0 警告 0 错误
+- 触发方式：push 到 `main` 自动运行 quick；Actions 页手动 Run workflow 可选 quick / full
+- 工具链：AOSP clang r563880（与发版一致）；产物在 Actions 运行页面下载
 
 ## 上游
 

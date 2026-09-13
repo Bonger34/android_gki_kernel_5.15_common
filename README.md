@@ -13,6 +13,7 @@
   - 内核：使用 **Kernel Flasher** 刷入（作者推荐）；也可用 KernelSU / Magisk「从存储安装」，或 recovery 直接刷入
   - 模块：KernelSU 或 Magisk 应用内安装
 - 仅替换内核镜像，不影响数据
+- root 兼容性：只替换内核（boot 分区），不触碰 init_boot；Magisk / KernelSU（LKM）的 root 状态保留，无需重新修补
 - SHA-256：`6013ac278852f84aeece050d94e47146602eee0e14234506181e493714b290e2`
 
 ## 模块使用（schedhorizon）

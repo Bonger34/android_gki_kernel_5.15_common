@@ -1,0 +1,134 @@
+# ============================================================
+# hfdem 5.15 内核更新 —— 编译测试（fork 内直接构建）
+# 直接检出 android13-5.15-2026-09 分支，用 AOSP clang r563880 构建
+# push 到 main 自动跑 quick；手动触发可选 quick / full
+# ============================================================
+name: kernel-build-test
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "quick=快速验证(~30分钟) / full=发布配置完整构建(~2-4小时)"
+        type: choice
+        options:
+          - quick
+          - full
+        default: full
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 355
+
+    steps:
+      - name: 检出内核更新分支（android13-5.15-2026-09）
+        uses: actions/checkout@v4
+        with:
+          ref: android13-5.15-2026-09
+          fetch-depth: 1
+
+      - name: 释放磁盘空间
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo apt-get clean
+          df -h /
+
+      - name: 安装构建依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential bc bison flex libssl-dev \
+            libelf-dev zlib1g-dev libncurses-dev cpio zstd lz4 xz-utils dwarves
+          df -h /
+
+      - name: 添加交换分区（LTO 链接内存保障）
+        run: |
+          sudo fallocate -l 10G /swapfile && sudo chmod 600 /swapfile && \
+            sudo mkswap /swapfile && sudo swapon /swapfile || echo "swap 设置失败，继续"
+          free -h
+
+      - name: 恢复 clang 缓存（加速后续运行）
+        uses: actions/cache@v4
+        with:
+          path: ~/clang
+          key: clang-r563880-v2
+
+      - name: 下载 AOSP clang r563880
+        run: |
+          set -x
+          if [ -n "$(find "$HOME/clang" -name clang -path '*/bin/*' 2>/dev/null | head -1)" ]; then
+            echo "== 缓存命中，跳过下载"
+          else
+            rm -rf "$HOME/clang" "$HOME/clang-tmp" "$HOME/clang.tar.gz"
+            mkdir -p "$HOME/clang-tmp"
+            SOURCES=(
+              "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/mirror-goog-llvm-r574158-release/clang-r563880.tar.gz"
+              "https://codeload.github.com/Aeron-Aeron/linux-x86-clang-21.0.0-r563880/tar.gz/refs/heads/main"
+              "https://github.com/kiy017/clang-r563880c/releases/download/release/linux-x86-f8439f0628d799092dd07df440a6334cab28939c-clang-r563880c.tar.gz"
+            )
+            ok=""
+            for url in "${SOURCES[@]}"; do
+              echo "== 尝试下载: $url"
+              rm -rf "$HOME/clang-tmp"; mkdir -p "$HOME/clang-tmp"; rm -f "$HOME/clang.tar.gz"
+              if curl -fL --retry 4 --retry-delay 5 --retry-all-errors --connect-timeout 20 \
+                   --speed-limit 10240 --speed-time 60 -o "$HOME/clang.tar.gz" "$url"; then
+                if tar -xzf "$HOME/clang.tar.gz" -C "$HOME/clang-tmp" 2>/dev/null && \
+                   [ -n "$(find "$HOME/clang-tmp" -name clang -path '*/bin/*' 2>/dev/null | head -1)" ]; then
+                  echo "== 下载解压成功: $url"; ok=1; break
+                fi
+              fi
+              echo "== 该源失败，尝试下一个"
+            done
+            [ -n "$ok" ] || { echo "所有 clang 下载源均失败"; exit 1; }
+            mv "$HOME/clang-tmp" "$HOME/clang"
+            rm -f "$HOME/clang.tar.gz"
+          fi
+          BIN=$(find "$HOME/clang" -name clang -path '*/bin/*' | head -1)
+          echo "CLANG_BIN_DIR=$(dirname "$BIN")" >> "$GITHUB_ENV"
+          "$(dirname "$BIN")/clang" --version
+
+      - name: 配置内核
+        run: |
+          export PATH="$CLANG_BIN_DIR:$PATH"
+          PROFILE="${{ github.event.inputs.profile || 'quick' }}"
+          echo "构建配置: $PROFILE"
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 gki_defconfig
+          if [ "$PROFILE" = "quick" ]; then
+            ./scripts/config --file out/.config \
+              -d LTO_CLANG_FULL -d CFI_CLANG \
+              -d KASAN -d KASAN_HW_TAGS \
+              -d UBSAN -d UBSAN_TRAP -d UBSAN_LOCAL_BOUNDS \
+              -d DEBUG_INFO -d DEBUG_INFO_DWARF4 -d DEBUG_INFO_BTF
+            make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
+          fi
+          grep -E "^CONFIG_(LTO|CFI|KASAN=|UBSAN=|DEBUG_INFO=|LOCALVERSION)" out/.config || true
+
+      - name: 构建 Image.lz4 / Image.gz / 模块
+        run: |
+          export PATH="$CLANG_BIN_DIR:$PATH"
+          time make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j"$(nproc)" Image.lz4 Image.gz modules
+          ls -la out/arch/arm64/boot/ | head -20
+
+      - name: 上传构建产物
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-images
+          path: |
+            out/arch/arm64/boot/Image.lz4
+            out/arch/arm64/boot/Image.gz
+            out/.config
+          if-no-files-found: warn
+
+      - name: 结果汇总
+        if: always()
+        run: |
+          {
+            echo "## 构建结果"
+            echo ""
+            echo "- 配置: \`${{ github.event.inputs.profile || 'quick' }}\`"
+            echo "- 状态: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
